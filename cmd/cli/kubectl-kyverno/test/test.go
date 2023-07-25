@@ -87,7 +87,9 @@ func applyPoliciesFromPath(
 	}
 
 	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
+	fmt.Println(policyFullPath)
 	resourceFullPath := getFullPath(values.Resources, policyResourcePath, isGit)
+	fmt.Println(resourceFullPath)
 
 	for i, result := range values.Results {
 		arrPatchedResource := []string{result.PatchedResource}
