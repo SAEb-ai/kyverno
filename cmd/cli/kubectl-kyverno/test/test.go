@@ -192,8 +192,14 @@ func applyPoliciesFromPath(
 	}
 
 	for _, policy := range policies {
-		fmt.Println(policy)
-		_, err := policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
+		jsonByte, err := json.Marshal(policy)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fmt.Println(string(jsonByte))
+
+		_, err = policyvalidation.Validate(policy, nil, nil, true, openApiManager, config.KyvernoUserName(config.KyvernoServiceAccountName()))
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue
