@@ -20,14 +20,16 @@ package v2alpha1
 
 import (
 	v2beta1 "github.com/kyverno/kyverno/pkg/client/applyconfigurations/kyverno/v2beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // PolicyExceptionSpecApplyConfiguration represents an declarative configuration of the PolicyExceptionSpec type for use
 // with apply.
 type PolicyExceptionSpecApplyConfiguration struct {
-	Background *bool                                     `json:"background,omitempty"`
-	Match      *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
-	Exceptions []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
+	Background          *bool                                     `json:"background,omitempty"`
+	Match               *v2beta1.MatchResourcesApplyConfiguration `json:"match,omitempty"`
+	Exceptions          []ExceptionApplyConfiguration             `json:"exceptions,omitempty"`
+	RawAnyAllConditions *v1.JSON                                  `json:"preconditions,omitempty"`
 }
 
 // PolicyExceptionSpecApplyConfiguration constructs an declarative configuration of the PolicyExceptionSpec type for use with
@@ -62,5 +64,13 @@ func (b *PolicyExceptionSpecApplyConfiguration) WithExceptions(values ...*Except
 		}
 		b.Exceptions = append(b.Exceptions, *values[i])
 	}
+	return b
+}
+
+// WithRawAnyAllConditions sets the RawAnyAllConditions field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the RawAnyAllConditions field is set to the value of the last call.
+func (b *PolicyExceptionSpecApplyConfiguration) WithRawAnyAllConditions(value v1.JSON) *PolicyExceptionSpecApplyConfiguration {
+	b.RawAnyAllConditions = &value
 	return b
 }
