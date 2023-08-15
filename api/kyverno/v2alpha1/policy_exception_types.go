@@ -21,6 +21,8 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -43,8 +45,11 @@ type PolicyException struct {
 
 // Validate implements programmatic validation
 func (p *PolicyException) Validate() (errs field.ErrorList) {
-	if err := ValidateVariables(p); err != nil {
-		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables", p.Name)))
+	if err := regex.ObjectHasVariables(p.Spec.Match); err != nil {
+		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables in match section", p.Name)))
+	}
+	if err := regex.ObjectHasVariables(p.Spec.Exceptions); err != nil {
+		errs = append(errs, field.Forbidden(field.NewPath(""), fmt.Sprintf("Policy Exception \"%s\" should not have variables in exceptions section", p.Name)))
 	}
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"))...)
 	return errs
@@ -71,6 +76,8 @@ type PolicyExceptionSpec struct {
 
 	// Exceptions is a list policy/rules to be excluded
 	Exceptions []Exception `json:"exceptions"`
+
+	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
 func (p *PolicyExceptionSpec) BackgroundProcessingEnabled() bool {
@@ -103,6 +110,10 @@ func (p *PolicyExceptionSpec) Contains(policy string, rule string) bool {
 		}
 	}
 	return false
+}
+
+func (p *PolicyExceptionSpec) GetAnyAllConditions() apiextensions.JSON {
+	return FromJSON(p.RawAnyAllConditions)
 }
 
 // Exception stores infos about a policy and rules

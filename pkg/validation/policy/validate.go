@@ -855,9 +855,11 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 	if err != nil {
 		return schemaKey, err
 	}
+	fmt.Println(kyvernoConditions)
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
+		fmt.Println("1")
 		if !datautils.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
 				if path, err := validateConditionValues(condition); err != nil {
@@ -875,6 +877,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		}
 
 	case []kyvernov1.Condition: // backwards compatibility
+		fmt.Println("2")
 		for i, condition := range typedConditions {
 			if path, err := validateConditionValues(condition); err != nil {
 				return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
@@ -892,6 +895,9 @@ func validateConditionValues(c kyvernov1.Condition) (string, error) {
 	if k == nil || v == nil || c.Operator == "" {
 		return "", fmt.Errorf("entered value of `key`, `value` or `operator` is missing or misspelled")
 	}
+	fmt.Println(k)
+	fmt.Println(v)
+	fmt.Println(c.Operator)
 	switch reflect.TypeOf(k).Kind() {
 	case reflect.String:
 		value, err := validateValuesKeyRequest(c)

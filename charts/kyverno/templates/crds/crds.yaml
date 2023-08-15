@@ -36380,6 +36380,8 @@ spec:
                       type: object
                     type: array
                 type: object
+              preconditions:
+                x-kubernetes-preserve-unknown-fields: true
             required:
             - exceptions
             - match

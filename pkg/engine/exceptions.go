@@ -1,13 +1,16 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
@@ -39,19 +42,41 @@ func findExceptions(
 
 // matchesException checks if an exception applies to the resource being admitted
 func matchesException(
+	e *engine,
 	selector engineapi.PolicyExceptionSelector,
+	logger logr.Logger,
 	policyContext engineapi.PolicyContext,
 	rule kyvernov1.Rule,
 ) (*kyvernov2alpha1.PolicyException, error) {
+	fmt.Println("PolicyContext")
+	p, err2 := json.Marshal(policyContext)
+	if err2 != nil {
+		fmt.Println(err2)
+	}
+	fmt.Println(string(p))
 	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
+	fmt.Println("Candidates")
+	c, err1 := json.Marshal(candidates)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	fmt.Println(string(c))
 	if err != nil {
 		return nil, err
 	}
 	gvk, subresource := policyContext.ResourceKind()
+	fmt.Println("subresource")
+	fmt.Println(subresource)
 	resource := policyContext.NewResource()
+	fmt.Println("newresource")
+	fmt.Println(resource)
+
 	if resource.Object == nil {
+		fmt.Println("oldresource")
 		resource = policyContext.OldResource()
+		fmt.Println(resource)
 	}
+
 	for _, candidate := range candidates {
 		err := matched.CheckMatchesResources(
 			resource,
@@ -61,6 +86,38 @@ func matchesException(
 			gvk,
 			subresource,
 		)
+		exception, _ := conditionsException(e.exceptionSelector, logger, policyContext, rule)
+		// if there's no error it means a match
+		if err == nil && exception != nil {
+			return candidate, nil
+		}
+	}
+	return nil, nil
+}
+
+func conditionsException(
+	selector engineapi.PolicyExceptionSelector,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	rule kyvernov1.Rule,
+) (*kyvernov2alpha1.PolicyException, error) {
+	candidates, err := findExceptions(selector, policyContext.Policy(), rule.Name)
+	if err != nil {
+		return nil, err
+	}
+	resource := policyContext.NewResource()
+	if resource.Object == nil {
+		resource = policyContext.OldResource()
+	}
+	for _, candidate := range candidates {
+		preconditionsPassed, msg, err := internal.CheckPreconditions(logger, policyContext.JSONContext(), candidate.Spec.GetAnyAllConditions())
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate preconditions:%w", err)
+		}
+		if !preconditionsPassed {
+			s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
+			return nil, fmt.Errorf(s)
+		}
 		// if there's no error it means a match
 		if err == nil {
 			return candidate, nil
@@ -78,7 +135,7 @@ func (e *engine) hasPolicyExceptions(
 	rule kyvernov1.Rule,
 ) *engineapi.RuleResponse {
 	// if matches, check if there is a corresponding policy exception
-	exception, err := matchesException(e.exceptionSelector, ctx, rule)
+	exception, err := matchesException(e, e.exceptionSelector, logger, ctx, rule)
 	if err != nil {
 		logger.Error(err, "failed to match exceptions")
 		return nil
